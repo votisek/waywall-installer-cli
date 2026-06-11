@@ -95,7 +95,7 @@ Press Enter to cancel installation
 2) No
     "#);
         let int_input = to_int(&input, 1, 2);
-        is_nvidia = if int_input == 1 {true} else {false};
+        is_nvidia = int_input == 1;
 
 
         // == is_internal_gpu =================================================
@@ -108,7 +108,7 @@ Press Enter to cancel installation
 2) No
     "#);
         let int_input = to_int(&input, 1, 2);
-        is_internal_gpu = if int_input == 1 {true} else {false};
+        is_internal_gpu = int_input == 1;
 
 
         // == is_latest_version ===============================================
@@ -121,7 +121,7 @@ Press Enter to cancel installation
 2) No
     "#);
         let int_input = to_int(&input, 1, 2);
-        is_latest_version = if int_input == 1 {true} else {false};
+        is_latest_version = int_input == 1;
 
 
         // == use_generic_config ==============================================
@@ -134,7 +134,7 @@ Press Enter to cancel installation
 2) No
     "#);
         let int_input = to_int(&input, 1, 2);
-        use_generic_config = if int_input == 1 {true} else {false};
+        use_generic_config = int_input == 1;
 
     }
 
