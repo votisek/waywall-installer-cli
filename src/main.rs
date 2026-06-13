@@ -1,7 +1,19 @@
 use std::io::{self, Write};     // Inputs
 use std::process::Command;      // Commands
+use std::fs;                   // Read file
 
 fn main() {
+    // ==== Detect waywall package name based on distro =======================
+    let _distro = fs::read_to_string("/etc/os-release").unwrap();
+    let distro: &str = _distro
+        .lines()
+        .find(|l| l.starts_with("ID_LIKE="))
+        .or_else(|| _distro.lines().find(|l| l.starts_with("ID=")))
+        .and_then(|l| l.split('=').nth(1))
+        .and_then(|l| l.split(' ').last())
+        .map(|s| s.trim_matches('"'))
+        .unwrap_or("unknown");
+
     // ==== Options (defaults) ================================================
     let installation_type: i32;                     // 0: cancel    1: default  2: custom
     let mut waywall_install: i32 = 1;               // 0: cancel    1: stable   2: latest   3: skip
@@ -10,6 +22,7 @@ fn main() {
     let mut is_internal_gpu: bool = false;          // If needed to not check "Use Discrete GPU"
     let mut is_latest_version: bool = false;        // For all the 26.1 tech
     let mut use_generic_config: bool = true;        // Clones generic config to ~/.config/waywall
+    let waywall_release_tag: &str = "0.2026.06.13"; // Waywall release tag in github releases
 
     // ==== Prompts ===========================================================
 
@@ -150,8 +163,41 @@ Press Enter to cancel installation
     println!("    Latest Version:           {}", if is_latest_version {"True"} else {"False"});
     println!("    Install Generic Config:   {}", if use_generic_config {"True"} else {"False"});
 
-
+    
     // ==== Installation ======================================================
+    //
+    // === Waywall installation
+    
+
+}
+
+fn waywall(itype: i32, distro: &str, waywall_tag: &str) {
+    // Install waywall
+    if itype == 1 {
+        // Download the waywall package
+        match distro {
+            "arch" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1-x86_64.pkg.tar.zst -O /tmp/waywall.pkg.tar.zst", waywall_tag)),
+            "fedora" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1.fc42.x86_64.rpm -O /tmp/waywall.rpm", waywall_tag)),
+            "debian" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall_0.5-1_amd64.deb -O /tmp/waywall.deb", waywall_tag)),
+            _ => println!("Unknown distro type found: {}", distro),
+        }
+        // Install the waywall package
+        match distro {
+            "arch" => run_command("pacman -S /tmp/waywall.pkg.tar.zst"),
+            "fedora" => run_command("dnf install /tmp/waywall.rpm"),
+            "debian" => run_command("apt install /tmp/waywall/deb"),
+            _ => println!("Unknown distro type found: {}", distro),
+        }
+    }
+    else {
+    
+    }
+
+    // Download generic
+    println!("Downloading Gore's generic config");
+    run_command("ls ~/.config/waywall 2>&1 >/dev/null || mv ~/.config/waywall ~/.config/waywall.bkp"); // Check for existing configuration and incase of it existing move it to a backup
+    run_command("git clone https://github.com/arjuncgore/waywall_generic_config.git ~/.config/waywall"); // Download it
+    println!("Generic config downloaded!");
 }
 
 fn header() {
