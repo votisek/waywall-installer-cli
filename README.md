@@ -1,0 +1,1 @@
+# waywall-installer-cli
