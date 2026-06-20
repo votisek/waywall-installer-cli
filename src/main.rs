@@ -31,6 +31,9 @@ fn main() {
     let mut is_latest_version: bool = false;        // For all the 26.1 tech
     let mut use_generic_config: bool = true;        // Clones generic config to ~/.config/waywall
     let waywall_release_tag: &str = "0.2026.06.13"; // Waywall release tag in github releases
+    let _user: String = String::from_utf8(Command::new("logname").output().expect("err").stdout)
+        .unwrap();        // Get user because of some wierd behaviour
+    let user: &str = _user.trim();
 
     // ==== Prompts ===========================================================
 
@@ -175,40 +178,41 @@ Press Enter to cancel installation
     // ==== Installation ======================================================
     //
     // === Waywall installation
-    
-
+    waywall(waywall_install, distro, waywall_release_tag, use_generic_config, user);
 }
 
-fn waywall(itype: i32, distro: &str, waywall_tag: &str) {
+fn waywall(itype: i32, distro: &str, waywall_tag: &str, use_generic_config: bool, user: &str) {
     // Install waywall
+    println!("curl -fsSL https://github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1-x86_64.pkg.tar.zst -o /tmp/waywall.pkg.tar.zst", waywall_tag);
     if itype == 1 {
         // Download the waywall package
         match distro {
-            "arch" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1-x86_64.pkg.tar.zst -O /tmp/waywall.pkg.tar.zst", waywall_tag)),
-            "fedora" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1.fc42.x86_64.rpm -O /tmp/waywall.rpm", waywall_tag)),
-            "debian" => run_command(&format!("curl -fsSL github.com/tesselslate/waywall/releases/download/{}/waywall_0.5-1_amd64.deb -O /tmp/waywall.deb", waywall_tag)),
+            "arch" => run_command(&format!("curl -fsSL https://github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1-x86_64.pkg.tar.zst -o /tmp/waywall.pkg.tar.zst", waywall_tag)),
+            "fedora" => run_command(&format!("curl -fsSL https://github.com/tesselslate/waywall/releases/download/{}/waywall-0.5-1.fc42.x86_64.rpm -o /tmp/waywall.rpm", waywall_tag)),
+            "debian" => run_command(&format!("curl -fsSL https://github.com/tesselslate/waywall/releases/download/{}/waywall_0.5-1_amd64.deb -o /tmp/waywall.deb", waywall_tag)),
             _ => println!("Unknown distro type found: {}", distro),
         }
         // Install the waywall package
         match distro {
             "arch" => run_command("pacman -U /tmp/waywall.pkg.tar.zst"),
             "fedora" => run_command("dnf localinstall /tmp/waywall.rpm"),
-            "debian" => run_command("dpkg -i /tmp/waywall/deb"),
+            "debian" => run_command("apt install -y /tmp/waywall.deb"),
             _ => println!("Unknown distro type found: {}", distro),
         }
     }
     else {
         // Build from source with ByPaco's script
         run_command("git clone https://github.com/tesselslate/waywall.git /tmp/waywall && git clone https://github.com/pacur/pacur.git /tmp/waywall/pacur");
-        run_command("(cd /tmp/waywall/pacur; (find . -maxdepth 1 -type d \\( ! -name 'archlinux' ! -name 'debian-trixie' ! -name 'fedora-42' \\) -exec rm -rf {} + && for dir in */ ; do podman build --rm -t 'pacur/${dir::-1}' '$dir'; done))");
+        run_command("bash -c \"cd /tmp/waywall/pacur; find . -mindepth 1 -maxdepth 1 -type d \\( ! -name 'archlinux' ! -name 'debian-trixie' ! -name 'fedora-42' \\) -exec rm -rf {} + && for dir in */; do podman build --rm -t \\\"pacur/${dir%/}\\\" \\\"$dir\\\"; done\"");
         run_command(&format!("(cd /tmp/waywall; ./build-packages.sh --{})", distro));
     }
-
-    // Download generic
-    println!("Downloading Gore's generic config");
-    run_command("ls ~/.config/waywall 2>&1 >/dev/null || mv ~/.config/waywall ~/.config/waywall.bkp"); // Check for existing configuration and incase of it existing move it to a backup
-    run_command("git clone https://github.com/arjuncgore/waywall_generic_config.git $HOME/.config/waywall > /dev/null"); // Download it
-    println!("Generic config downloaded!");
+    if use_generic_config {
+        // Download generic
+        println!("Downloading Gore's generic config");
+        run_command(&format!("[ -d /home/{}/.config/waywall ] && mv /home/{}/.config/waywall /home/{}/.config/waywall.bkp >/dev/null 2>&1 || true", user, user, user)); // Check for existing configuration and incase of it existing move it to a backup
+        run_command(&format!("git clone https://github.com/arjuncgore/waywall_generic_config.git /home/{}/.config/waywall", user)); // Download it
+        println!("Generic config downloaded!");
+    }
 }
 
 fn header() {
@@ -254,18 +258,14 @@ fn to_int(input: &str, min: i32, max: i32) -> i32{
 }
 
 fn run_command(cmd: &str) {
-    let output = Command::new("sh")
+    let status = Command::new("sh")
         .arg("-c")
         .arg(cmd)
-        .output()
+        .status()
         .expect("Failed to execute command");
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        println!("Success:\n{}", stdout);
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Error:\n{}", stderr);
+    if !status.success() {
+        eprintln!("Command failed with status: {}", status);
     }
 }
 
